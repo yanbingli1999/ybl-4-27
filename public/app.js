@@ -3,6 +3,7 @@ let residualChart = null;
 let currentResultId = null;
 let currentDatasetId = null;
 let isDirty = false;
+let isSampleData = false;
 
 const modelTypeLabels = {
   linear: '线性模型',
@@ -35,6 +36,7 @@ function updateDatasetButtons() {
 
 function markDirty() {
   isDirty = true;
+  isSampleData = false;
   updateDatasetButtons();
 }
 
@@ -221,6 +223,7 @@ function clearDataTable() {
   }
   currentDatasetId = null;
   currentResultId = null;
+  isSampleData = false;
   clearDirty();
   resetDisplay();
 }
@@ -284,9 +287,10 @@ function loadSampleData() {
   document.getElementById('datasetName').value = '示例实验数据';
   currentDatasetId = null;
   currentResultId = null;
+  isSampleData = true;
   resetDisplay();
   clearDirty();
-  showToast('已加载示例数据', 'success');
+  showToast('已加载示例数据（修改数据后将自动转为真实实验记录）', 'info');
 }
 
 async function performFit() {
@@ -301,6 +305,10 @@ async function performFit() {
   const xUnit = document.getElementById('xUnit').value || '';
   const yUnit = document.getElementById('yUnit').value || '';
 
+  if (isSampleData) {
+    showToast('示例数据拟合结果不会保存到历史，请修改数据或重命名后再保存', 'info');
+  }
+
   const fitBtn = document.getElementById('fitBtn');
   const originalText = fitBtn.textContent;
   fitBtn.textContent = '⏳ 计算中...';
@@ -310,14 +318,19 @@ async function performFit() {
     const res = await fetch('/api/fit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ points, modelType, datasetName, datasetId: currentDatasetId, xUnit, yUnit })
+      body: JSON.stringify({ points, modelType, datasetName, datasetId: currentDatasetId, xUnit, yUnit, skipHistory: isSampleData })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || '拟合失败');
 
     displayFitResult(data);
-    currentResultId = data.id;
-    showToast('拟合完成！', 'success');
+    if (!isSampleData) {
+      currentResultId = data.id;
+      showToast('拟合完成！', 'success');
+    } else {
+      currentResultId = null;
+      showToast('拟合完成（示例数据未存入历史）', 'success');
+    }
     loadHistory();
   } catch (err) {
     showToast(err.message, 'error');
@@ -527,9 +540,78 @@ function generateParamsExplanationCard(result) {
     const aUnit = xU !== '无量纲' ? `${yU}/${xU}²` : yU;
     const bUnit = xU !== '无量纲' ? `${yU}/${xU}` : yU;
     const cUnit = yU;
-    const vertexX = -params.b / (2 * params.a);
-    const vertexY = params.c - (params.b * params.b) / (4 * params.a);
-    html += `
+    const absA = Math.abs(params.a);
+    const scale = Math.abs(params.b) + Math.abs(params.c) + 1e-6;
+    const isDegenerate = absA < 1e-4 * scale || absA < 1e-8;
+
+    if (isDegenerate) {
+      const slope = params.b;
+      const intercept = params.c;
+      html += `
+      <div class="formula-explanation">
+        <div class="formula-title">📐 公式解读</div>
+        <div class="formula-big">y = a·x² + b·x + c</div>
+        <div class="formula-desc">
+          <strong>二次曲线（抛物线）</strong>描述 Y 随 X 先增后减或先减后增的非线性关系。
+          <span class="degenerate-warning">⚠ 当前二次项系数 a 极小（${params.a.toExponential(2)}），曲线已<strong>退化为近似直线</strong>，建议改用<em>线性模型</em>重新拟合。</span>
+        </div>
+      </div>
+      <div class="degenerate-notice">
+        <strong>⚠️ 退化检测：</strong>
+        二次项 a 的影响可忽略，等效直线方程为 <span class="unit-result">y ≈ ${slope.toFixed(6)}x + ${intercept.toFixed(6)}</span>
+        （斜率单位：${bUnit}，截距单位：${cUnit}）
+      </div>
+      <div class="params-grid">
+        <div class="param-item">
+          <div class="param-symbol">a (二次项系数)</div>
+          <div class="param-value">${params.a.toFixed(6)} <span class="param-unit">${aUnit}</span></div>
+          <div class="param-meaning">
+            控制抛物线的开口方向和曲率大小
+          </div>
+          <div class="param-sign">
+            <span class="sign-zero">≈ 零（退化）</span>：
+            二次项几乎无影响，曲线近似为直线，顶点信息无实际意义
+          </div>
+        </div>
+        <div class="param-item">
+          <div class="param-symbol">b (一次项系数 / 等效斜率)</div>
+          <div class="param-value">${params.b.toFixed(6)} <span class="param-unit">${bUnit}</span></div>
+          <div class="param-meaning">
+            在退化情况下，等效为线性模型的斜率（X每增加1单位，Y的平均变化量）
+          </div>
+          <div class="param-sign">
+            ${getSignInfo(params.b,
+              `等效线性斜率为正：Y 随 X 增大而增大（正相关、上升趋势），速率 ≈ ${Math.abs(params.b).toFixed(3)} ${bUnit}`,
+              `等效线性斜率为负：Y 随 X 增大而减小（负相关、下降趋势），速率 ≈ ${Math.abs(params.b).toFixed(3)} ${bUnit}`,
+              '等效斜率为零：Y 基本不随 X 变化（近似水平线）')}
+          </div>
+        </div>
+        <div class="param-item">
+          <div class="param-symbol">c (常数项 / 等效截距)</div>
+          <div class="param-value">${params.c.toFixed(6)} <span class="param-unit">${cUnit}</span></div>
+          <div class="param-meaning">
+            在退化情况下，等效为线性模型的截距（当 X = 0 时 Y 的预测值）
+          </div>
+          <div class="param-sign">
+            ${getSignInfo(params.c,
+              '等效直线交 Y 轴于正半轴',
+              '等效直线交 Y 轴于负半轴',
+              '等效直线经过原点 (0, 0)')}
+          </div>
+        </div>
+      </div>
+      <div class="unit-derivation">
+        <strong>🔬 单位推导：</strong>
+        a = Y/X² = <span class="unit-result">${aUnit}</span>；
+        b = Y/X = <span class="unit-result">${bUnit}</span>；
+        c 与 Y 同量纲 = <span class="unit-result">${cUnit}</span>
+        <br><em>（退化状态下建议采用线性模型的单位解释）</em>
+      </div>
+    `;
+    } else {
+      const vertexX = -params.b / (2 * params.a);
+      const vertexY = params.c - (params.b * params.b) / (4 * params.a);
+      html += `
       <div class="formula-explanation">
         <div class="formula-title">📐 公式解读</div>
         <div class="formula-big">y = a·x² + b·x + c</div>
@@ -591,6 +673,7 @@ function generateParamsExplanationCard(result) {
         c 与 Y 同量纲 = <span class="unit-result">${cUnit}</span>
       </div>
     `;
+    }
   }
 
   html += `
@@ -647,6 +730,7 @@ async function loadHistoryItem(id) {
     displayFitResult(data);
     currentResultId = id;
     currentDatasetId = data.datasetId || null;
+    isSampleData = false;
     clearDirty();
     showToast('已加载历史记录', 'success');
   } catch (err) {
@@ -764,6 +848,7 @@ async function loadDataset(id) {
     setTableData(dataset.points);
     currentDatasetId = id;
     currentResultId = null;
+    isSampleData = false;
     resetDisplay();
     clearDirty();
     showToast('已加载数据集', 'success');
@@ -813,6 +898,11 @@ function initEventListeners() {
   document.getElementById('saveDatasetBtn').addEventListener('click', saveCurrentDataset);
   document.getElementById('updateDatasetBtn').addEventListener('click', updateCurrentDataset);
   document.getElementById('datasetName').addEventListener('input', markDirty);
+  document.getElementById('xUnit').addEventListener('input', markDirty);
+  document.getElementById('yUnit').addEventListener('input', markDirty);
+  document.querySelectorAll('input[name="modelType"]').forEach(radio => {
+    radio.addEventListener('change', markDirty);
+  });
 }
 
 function init() {
