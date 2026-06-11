@@ -20,6 +20,16 @@
           <h2>📋 数据录入</h2>
           <div class="dataset-controls">
             <input type="text" id="datasetName" placeholder="数据集名称" value="我的实验数据">
+            <div class="unit-inputs">
+              <div class="unit-input-group">
+                <label for="xUnit">X 轴单位</label>
+                <input type="text" id="xUnit" placeholder="如：秒(s)" value="s">
+              </div>
+              <div class="unit-input-group">
+                <label for="yUnit">Y 轴单位</label>
+                <input type="text" id="yUnit" placeholder="如：米(m)" value="m">
+              </div>
+            </div>
           </div>
           <div class="table-toolbar">
             <button id="addRowBtn" class="btn btn-primary">➕ 添加行</button>
@@ -86,6 +96,8 @@
             <div class="equation-display" id="equationDisplay">
               <span class="eq-label">拟合方程:</span>
               <span class="eq-formula" id="eqFormula">等待拟合...</span>
+            </div>
+            <div id="paramsExplanationCard" class="params-explanation-card" style="display:none;">
             </div>
           </div>
         </div>

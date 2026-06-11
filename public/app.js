@@ -232,6 +232,7 @@ function resetDisplay() {
   document.getElementById('metricMAE').textContent = '—';
   document.getElementById('eqFormula').textContent = '等待拟合...';
   document.getElementById('outliersSection').style.display = 'none';
+  document.getElementById('paramsExplanationCard').style.display = 'none';
 
   if (fitChart) {
     fitChart.data.datasets.forEach(ds => ds.data = []);
@@ -297,6 +298,8 @@ async function performFit() {
 
   const modelType = document.querySelector('input[name="modelType"]:checked').value;
   const datasetName = document.getElementById('datasetName').value || '未命名数据集';
+  const xUnit = document.getElementById('xUnit').value || '';
+  const yUnit = document.getElementById('yUnit').value || '';
 
   const fitBtn = document.getElementById('fitBtn');
   const originalText = fitBtn.textContent;
@@ -307,7 +310,7 @@ async function performFit() {
     const res = await fetch('/api/fit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ points, modelType, datasetName, datasetId: currentDatasetId })
+      body: JSON.stringify({ points, modelType, datasetName, datasetId: currentDatasetId, xUnit, yUnit })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || '拟合失败');
@@ -330,6 +333,24 @@ function displayFitResult(result) {
   document.getElementById('metricRMSE').textContent = result.metrics.rmse.toFixed(6);
   document.getElementById('metricMAE').textContent = result.metrics.mae.toFixed(6);
   document.getElementById('eqFormula').textContent = result.modelEquation;
+
+  if (result.xUnit !== undefined && result.xUnit !== '') {
+    document.getElementById('xUnit').value = result.xUnit;
+  }
+  if (result.yUnit !== undefined && result.yUnit !== '') {
+    document.getElementById('yUnit').value = result.yUnit;
+  }
+
+  if (result.xUnit || result.yUnit) {
+    fitChart.options.scales.x.title.text = `X 轴 (${result.xUnit || '无单位'})`;
+    fitChart.options.scales.y.title.text = `Y 轴 (${result.yUnit || '无单位'})`;
+    fitChart.update();
+  }
+
+  const explanationCard = generateParamsExplanationCard(result);
+  const cardEl = document.getElementById('paramsExplanationCard');
+  cardEl.innerHTML = explanationCard;
+  cardEl.style.display = 'block';
 
   const normalPoints = [];
   const outlierPoints = [];
@@ -381,6 +402,207 @@ function displayFitResult(result) {
   } else {
     outliersSection.style.display = 'none';
   }
+}
+
+function formatUnit(unit) {
+  return unit && unit.trim() ? unit.trim() : '无量纲';
+}
+
+function getSignInfo(value, positiveDesc, negativeDesc, zeroDesc) {
+  if (value > 0) {
+    return `<span class="sign-positive">⬆ 正值</span>：${positiveDesc}`;
+  } else if (value < 0) {
+    return `<span class="sign-negative">⬇ 负值</span>：${negativeDesc}`;
+  } else {
+    return `<span class="sign-zero">≈ 零</span>：${zeroDesc}`;
+  }
+}
+
+function generateParamsExplanationCard(result) {
+  const { modelType, params, xUnit, yUnit } = result;
+  const xU = formatUnit(xUnit);
+  const yU = formatUnit(yUnit);
+
+  let html = '<div class="explanation-card-inner">';
+  html += '<div class="explanation-header">📖 参数说明卡</div>';
+
+  if (modelType === 'linear') {
+    const slopeUnit = xU !== '无量纲' ? `${yU}/${xU}` : yU;
+    const interceptUnit = yU;
+    html += `
+      <div class="formula-explanation">
+        <div class="formula-title">📐 公式解读</div>
+        <div class="formula-big">y = a·x + b</div>
+        <div class="formula-desc">
+          <strong>线性模型</strong>描述了 Y 随 X 的均匀变化关系。
+          每当 X 增加 1${xU === '无量纲' ? '' : ' ' + xU}，Y 就会变化 a ${slopeUnit}。
+        </div>
+      </div>
+      <div class="params-grid">
+        <div class="param-item">
+          <div class="param-symbol">a (斜率)</div>
+          <div class="param-value">${params.a.toFixed(6)} <span class="param-unit">${slopeUnit}</span></div>
+          <div class="param-meaning">
+            表示 X 每增加 1${xU === '无量纲' ? '' : ' ' + xU}，Y 的平均变化量
+          </div>
+          <div class="param-sign">
+            ${getSignInfo(params.a,
+              'Y 随 X 增大而增大（正相关、上升趋势）',
+              'Y 随 X 增大而减小（负相关、下降趋势）',
+              'Y 不随 X 变化（水平线）')}
+          </div>
+        </div>
+        <div class="param-item">
+          <div class="param-symbol">b (截距)</div>
+          <div class="param-value">${params.b.toFixed(6)} <span class="param-unit">${interceptUnit}</span></div>
+          <div class="param-meaning">
+            表示当 X = 0 时，Y 的预测值（曲线与 Y 轴的交点）
+          </div>
+          <div class="param-sign">
+            ${getSignInfo(params.b,
+              '当 X=0 时，Y 的起始值为正',
+              '当 X=0 时，Y 的起始值为负',
+              '曲线经过坐标原点 (0, 0)')}
+          </div>
+        </div>
+      </div>
+      <div class="unit-derivation">
+        <strong>🔬 单位推导：</strong>
+        斜率 a = ΔY/ΔX = ${yU} / ${xU} = <span class="unit-result">${slopeUnit}</span>；
+        截距 b 的量纲与 Y 相同 = <span class="unit-result">${interceptUnit}</span>
+      </div>
+    `;
+  } else if (modelType === 'exponential') {
+    const aUnit = yU;
+    const bUnit = xU !== '无量纲' ? `1/${xU}` : '无量纲';
+    const bDesc = Math.abs(params.b) > 1
+      ? '变化较快'
+      : Math.abs(params.b) > 0.1
+      ? '变化适中'
+      : '变化缓慢';
+    html += `
+      <div class="formula-explanation">
+        <div class="formula-title">📐 公式解读</div>
+        <div class="formula-big">y = a · eᵇˣ</div>
+        <div class="formula-desc">
+          <strong>指数模型</strong>描述 Y 随 X 呈指数增长或衰减的过程。
+          适用于细菌繁殖、放射性衰变、复利增长等场景。
+        </div>
+      </div>
+      <div class="params-grid">
+        <div class="param-item">
+          <div class="param-symbol">a (初始值)</div>
+          <div class="param-value">${params.a.toFixed(6)} <span class="param-unit">${aUnit}</span></div>
+          <div class="param-meaning">
+            表示当 X = 0 时，Y 的初始值（Y 的起始规模）
+          </div>
+          <div class="param-sign">
+            ${getSignInfo(params.a,
+              '初始值为正（常见情况）',
+              '初始值为负（较少见）',
+              '初始值为零（整个曲线恒为零）')}
+          </div>
+        </div>
+        <div class="param-item">
+          <div class="param-symbol">b (增长率/衰减率)</div>
+          <div class="param-value">${params.b.toFixed(6)} <span class="param-unit">${bUnit}</span></div>
+          <div class="param-meaning">
+            控制指数变化的速度（${bDesc}）
+          </div>
+          <div class="param-sign">
+            ${getSignInfo(params.b,
+              '指数增长：Y 随 X 加速增大（如人口增长、复利）',
+              '指数衰减：Y 随 X 加速减小（如放射性衰变、降温）',
+              '无指数变化，Y 恒等于 a')}
+          </div>
+        </div>
+      </div>
+      <div class="unit-derivation">
+        <strong>🔬 单位推导：</strong>
+        指数 b·x 必须无量纲，故 b 的单位 = 1/X单位 = <span class="unit-result">${bUnit}</span>；
+        a 的量纲与 Y 相同 = <span class="unit-result">${aUnit}</span>
+      </div>
+    `;
+  } else if (modelType === 'quadratic') {
+    const aUnit = xU !== '无量纲' ? `${yU}/${xU}²` : yU;
+    const bUnit = xU !== '无量纲' ? `${yU}/${xU}` : yU;
+    const cUnit = yU;
+    const vertexX = -params.b / (2 * params.a);
+    const vertexY = params.c - (params.b * params.b) / (4 * params.a);
+    html += `
+      <div class="formula-explanation">
+        <div class="formula-title">📐 公式解读</div>
+        <div class="formula-big">y = a·x² + b·x + c</div>
+        <div class="formula-desc">
+          <strong>二次曲线（抛物线）</strong>描述 Y 随 X 先增后减或先减后增的非线性关系。
+          常用于抛体运动、成本优化等场景。
+        </div>
+      </div>
+      <div class="params-grid">
+        <div class="param-item">
+          <div class="param-symbol">a (二次项系数)</div>
+          <div class="param-value">${params.a.toFixed(6)} <span class="param-unit">${aUnit}</span></div>
+          <div class="param-meaning">
+            控制抛物线的开口方向和曲率大小
+          </div>
+          <div class="param-sign">
+            ${getSignInfo(params.a,
+              '开口向上（U型），存在最小值',
+              '开口向下（∩型），存在最大值',
+              '退化为直线（退化为线性模型）')}
+          </div>
+        </div>
+        <div class="param-item">
+          <div class="param-symbol">b (一次项系数)</div>
+          <div class="param-value">${params.b.toFixed(6)} <span class="param-unit">${bUnit}</span></div>
+          <div class="param-meaning">
+            控制抛物线对称轴的位置（与 a 共同决定）
+          </div>
+          <div class="param-sign">
+            ${getSignInfo(params.b,
+              `与 a 同号时对称轴在负半轴；异号时在正半轴。当前顶点 x ≈ ${vertexX.toFixed(3)}${xU === '无量纲' ? '' : ' ' + xU}`,
+              `与 a 同号时对称轴在负半轴；异号时在正半轴。当前顶点 x ≈ ${vertexX.toFixed(3)}${xU === '无量纲' ? '' : ' ' + xU}`,
+              `对称轴为 Y 轴 (x=0)。当前顶点 x ≈ ${vertexX.toFixed(3)}${xU === '无量纲' ? '' : ' ' + xU}`)}
+          </div>
+        </div>
+        <div class="param-item">
+          <div class="param-symbol">c (常数项/截距)</div>
+          <div class="param-value">${params.c.toFixed(6)} <span class="param-unit">${cUnit}</span></div>
+          <div class="param-meaning">
+            当 X = 0 时 Y 的值（抛物线与 Y 轴交点）
+          </div>
+          <div class="param-sign">
+            ${getSignInfo(params.c,
+              '抛物线交 Y 轴于正半轴',
+              '抛物线交 Y 轴于负半轴',
+              '抛物线经过原点 (0, 0)')}
+          </div>
+        </div>
+      </div>
+      <div class="vertex-info">
+        <strong>🎯 顶点信息：</strong>
+        顶点坐标 ≈ (${vertexX.toFixed(3)}, ${vertexY.toFixed(3)})
+        ${params.a > 0 ? '，此为<em>最小值</em>点' : params.a < 0 ? '，此为<em>最大值</em>点' : ''}
+      </div>
+      <div class="unit-derivation">
+        <strong>🔬 单位推导：</strong>
+        a = Y/X² = <span class="unit-result">${aUnit}</span>；
+        b = Y/X = <span class="unit-result">${bUnit}</span>；
+        c 与 Y 同量纲 = <span class="unit-result">${cUnit}</span>
+      </div>
+    `;
+  }
+
+  html += `
+    <div class="metrics-note">
+      <strong>📊 误差说明：</strong>
+      R²越接近1表示拟合越好；
+      MSE/RMSE/MAE 单位为 ${yU}${yU !== '无量纲' ? '（或其平方）' : ''}，值越小越好。
+    </div>
+  `;
+
+  html += '</div>';
+  return html;
 }
 
 async function loadHistory() {

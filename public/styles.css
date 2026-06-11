@@ -100,6 +100,31 @@ body {
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
 }
 
+.unit-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.unit-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.unit-input-group label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.unit-input-group input {
+  margin-bottom: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
 .table-toolbar {
   display: flex;
   gap: 8px;
@@ -602,6 +627,214 @@ body {
   margin-bottom: 16px;
   padding-bottom: 16px;
   border-bottom: 2px solid #e2e8f0;
+}
+
+.params-explanation-card {
+  margin-top: 12px;
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.explanation-card-inner {
+  padding: 14px;
+}
+
+.explanation-header {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.formula-explanation {
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.formula-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 6px;
+}
+
+.formula-big {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+  font-family: 'Cambria Math', 'Times New Roman', serif;
+  text-align: center;
+  margin-bottom: 8px;
+  padding: 8px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
+  border-radius: 6px;
+}
+
+.formula-desc {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.formula-desc strong {
+  color: #1e293b;
+}
+
+.params-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.param-item {
+  background: white;
+  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s;
+}
+
+.param-item:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.param-symbol {
+  font-size: 12px;
+  font-weight: 700;
+  color: #667eea;
+  margin-bottom: 4px;
+}
+
+.param-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+  font-family: 'Cambria Math', 'Consolas', monospace;
+  margin-bottom: 6px;
+}
+
+.param-unit {
+  font-size: 12px;
+  font-weight: 500;
+  color: #764ba2;
+  background: rgba(118, 75, 162, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+
+.param-meaning {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.param-sign {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.sign-positive {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #059669;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-right: 4px;
+}
+
+.sign-negative {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-right: 4px;
+}
+
+.sign-zero {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background: rgba(148, 163, 184, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-right: 4px;
+}
+
+.unit-derivation {
+  background: white;
+  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+.unit-derivation strong {
+  color: #1e293b;
+}
+
+.unit-result {
+  display: inline-block;
+  font-weight: 700;
+  color: #764ba2;
+  background: rgba(118, 75, 162, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: 'Cambria Math', 'Consolas', monospace;
+}
+
+.vertex-info {
+  background: white;
+  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+.vertex-info strong {
+  color: #1e293b;
+}
+
+.vertex-info em {
+  font-style: normal;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.metrics-note {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.metrics-note strong {
+  color: #1e293b;
 }
 
 @media (max-width: 1400px) {

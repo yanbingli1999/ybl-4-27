@@ -218,7 +218,7 @@ app.delete('/api/datasets/:id', (req, res) => {
 });
 
 app.post('/api/fit', (req, res) => {
-  const { datasetId, points, modelType, datasetName } = req.body;
+  const { datasetId, points, modelType, datasetName, xUnit, yUnit } = req.body;
   if (!points || !Array.isArray(points) || points.length < 2) {
     return res.status(400).json({ error: '至少需要2个数据点' });
   }
@@ -260,6 +260,8 @@ app.post('/api/fit', (req, res) => {
     modelType,
     params,
     modelEquation,
+    xUnit: xUnit || '',
+    yUnit: yUnit || '',
     metrics: {
       rSquared: metrics.rSquared,
       mse: metrics.mse,
@@ -291,6 +293,8 @@ app.get('/api/history', (req, res) => {
     datasetName: h.datasetName,
     modelType: h.modelType,
     modelEquation: h.modelEquation,
+    xUnit: h.xUnit || '',
+    yUnit: h.yUnit || '',
     metrics: h.metrics,
     pointsCount: h.points.length,
     createdAt: h.createdAt
